@@ -1,0 +1,40 @@
+# Issue作成/編集時に本文でメンションされているユーザーを自動的に”Assignees”に追加します。
+
+
+name: Auto Assign Mentions
+
+# Issueが作成された時、または本文が編集された時に実行
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    # Issueへの書き込み権限を付与
+    permissions:
+      issues: write
+    steps:
+      - name: Extract mentions and assign
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Issueの本文を取得
+            const body = context.payload.issue.body;
+            if (!body) return;
+
+            // 正規表現で @username をすべて抽出（ハイフンや英数字に対応）
+            const mentions = body.match(/@([a-zA-Z0-9-]+)/g);
+            
+            if (mentions) {
+              // '@' を除いたユーザー名だけの配列に変換
+              const usernames = mentions.map(m => m.replace('@', ''));
+              
+              // 抽出されたユーザーをAssigneesに追加
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                assignees: usernames
+              });
+            }
